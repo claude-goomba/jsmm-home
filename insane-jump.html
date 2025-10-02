@@ -41,12 +41,13 @@
     }
 
     #gameCanvas {
-      background: linear-gradient(180deg, #87ceeb 0%, #4a9eff 100%);
+      background: #000;
       border-radius: 12px;
       display: block;
       margin: 20px auto;
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-      cursor: crosshair;
+      cursor: none;
+      border: 4px solid #efc050;
     }
 
     .stats {
@@ -161,47 +162,25 @@
       font-size: 1.5em;
       margin: 10px 0;
     }
-
-    .power-popup {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(239, 192, 80, 0.95);
-      color: #1a1a2e;
-      padding: 20px 40px;
-      border-radius: 15px;
-      font-size: 2em;
-      font-weight: bold;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      z-index: 999;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-    }
-
-    .power-popup.show {
-      opacity: 1;
-    }
   </style>
 </head>
 <body>
   <div id="gameContainer">
-    <h1>🎾 Insane Jump Tennis</h1>
-    <p class="subtitle">Smash your way to victory!</p>
+    <h1>🏓 Insane Jump Pong</h1>
+    <p class="subtitle">Classic arcade action!</p>
 
     <div class="stats">
       <div class="stat">
-        <div class="stat-label">Score</div>
-        <div class="stat-value" id="score">0</div>
+        <div class="stat-label">Player</div>
+        <div class="stat-value" id="playerScore">0</div>
       </div>
       <div class="stat">
-        <div class="stat-label">Best Rally</div>
-        <div class="stat-value" id="bestRally">0</div>
+        <div class="stat-label">Rally</div>
+        <div class="stat-value" id="rally">0</div>
       </div>
       <div class="stat">
-        <div class="stat-label">Speed</div>
-        <div class="stat-value" id="speed">1x</div>
+        <div class="stat-label">CPU</div>
+        <div class="stat-value" id="cpuScore">0</div>
       </div>
     </div>
 
@@ -209,27 +188,25 @@
 
     <div class="controls">
       <h3>Controls</h3>
-      <p><span class="key">MOUSE</span> Move paddle left and right</p>
-      <p><span class="key">CLICK</span> Power shot / Start game</p>
-      <p><span class="key">SPACE</span> Jump for aerial shots</p>
+      <p><span class="key">MOUSE</span> Move paddle up and down</p>
+      <p><span class="key">W</span> <span class="key">S</span> Alternative paddle controls</p>
+      <p><span class="key">CLICK</span> Start game</p>
+      <p style="margin-top: 10px; color: #efc050;">First to 10 points wins!</p>
     </div>
 
     <div>
-      <button onclick="resetGame()">Restart Game</button>
+      <button onclick="resetGame()">New Game</button>
       <a href="index.html" style="text-decoration: none;"><button>Back to Home</button></a>
     </div>
   </div>
 
   <div id="gameOver">
     <div class="gameOverContent">
-      <h2>Game Over!</h2>
-      <p>Final Score: <span id="finalScore">0</span></p>
-      <p>Best Rally: <span id="finalBestRally">0</span></p>
+      <h2 id="winnerText">You Win!</h2>
+      <p>Final Score: <span id="finalPlayerScore">0</span> - <span id="finalCPUScore">0</span></p>
       <button onclick="resetGame()">Play Again</button>
     </div>
   </div>
-
-  <div class="power-popup" id="powerPopup"></div>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
@@ -238,217 +215,193 @@
     // Game state
     let game = {
       running: false,
-      score: 0,
+      playerScore: 0,
+      cpuScore: 0,
       rally: 0,
-      bestRally: 0,
-      speed: 1,
-      mouseX: canvas.width / 2,
-      mouseY: canvas.height - 50,
+      maxScore: 10,
+      mouseY: canvas.height / 2,
       player: {
-        x: canvas.width / 2,
-        y: canvas.height - 100,
-        width: 80,
-        height: 100,
-        velocityY: 0,
-        jumping: false,
-        racketAngle: 0
+        x: 30,
+        y: canvas.height / 2 - 60,
+        width: 15,
+        height: 120,
+        speed: 8
+      },
+      cpu: {
+        x: canvas.width - 45,
+        y: canvas.height / 2 - 60,
+        width: 15,
+        height: 120,
+        speed: 5
       },
       ball: {
         x: canvas.width / 2,
-        y: 100,
-        radius: 12,
-        velocityX: 0,
-        velocityY: 0,
-        active: false,
+        y: canvas.height / 2,
+        radius: 10,
+        velocityX: 6,
+        velocityY: 4,
+        speed: 6,
         trail: []
       },
-      opponent: {
-        x: canvas.width / 2,
-        y: 80,
-        width: 80,
-        height: 100,
-        targetX: canvas.width / 2
-      },
       particles: [],
-      powerShot: false,
-      lastHit: null
+      keys: {}
     };
 
     // Mouse controls
     canvas.addEventListener('mousemove', (e) => {
       const rect = canvas.getBoundingClientRect();
-      game.mouseX = e.clientX - rect.left;
       game.mouseY = e.clientY - rect.top;
     });
 
     canvas.addEventListener('click', (e) => {
       if (!game.running) {
         startGame();
-      } else {
-        game.powerShot = true;
-        setTimeout(() => { game.powerShot = false; }, 300);
       }
     });
 
     // Keyboard controls
     document.addEventListener('keydown', (e) => {
-      if (e.key === ' ') {
+      game.keys[e.key.toLowerCase()] = true;
+      if (!game.running && e.key === ' ') {
         e.preventDefault();
-        if (!game.running) {
-          startGame();
-        } else if (!game.player.jumping) {
-          game.player.jumping = true;
-          game.player.velocityY = -18;
-        }
+        startGame();
       }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      game.keys[e.key.toLowerCase()] = false;
     });
 
     // Create particles
     function createParticles(x, y, color, count = 15) {
       for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 4 + 2;
         game.particles.push({
           x: x,
           y: y,
-          vx: (Math.random() - 0.5) * 8,
-          vy: (Math.random() - 0.5) * 8,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
           life: 30,
           color: color,
-          size: Math.random() * 4 + 2
+          size: Math.random() * 3 + 2
         });
       }
     }
 
-    // Show power popup
-    function showPowerPopup(text) {
-      const popup = document.getElementById('powerPopup');
-      popup.textContent = text;
-      popup.classList.add('show');
-
-      setTimeout(() => {
-        popup.classList.remove('show');
-      }, 1000);
+    // Reset ball
+    function resetBall() {
+      game.ball.x = canvas.width / 2;
+      game.ball.y = canvas.height / 2;
+      game.ball.velocityX = (Math.random() > 0.5 ? 1 : -1) * game.ball.speed;
+      game.ball.velocityY = (Math.random() - 0.5) * 4;
+      game.ball.trail = [];
+      game.rally = 0;
     }
 
     // Update game
     function update() {
       if (!game.running) return;
 
-      // Update player position (follow mouse X)
-      const targetX = game.mouseX - game.player.width / 2;
-      game.player.x += (targetX - game.player.x) * 0.2;
-      game.player.x = Math.max(0, Math.min(canvas.width - game.player.width, game.player.x));
+      // Update player paddle (follow mouse)
+      const targetY = game.mouseY - game.player.height / 2;
+      game.player.y += (targetY - game.player.y) * 0.2;
 
-      // Update player jump
-      if (game.player.jumping) {
-        game.player.velocityY += 0.8;
-        game.player.y += game.player.velocityY;
-
-        if (game.player.y >= canvas.height - 100) {
-          game.player.y = canvas.height - 100;
-          game.player.jumping = false;
-          game.player.velocityY = 0;
-        }
+      // Keyboard controls for player
+      if (game.keys['w']) {
+        game.player.y -= game.player.speed;
+      }
+      if (game.keys['s']) {
+        game.player.y += game.player.speed;
       }
 
-      // Calculate racket angle based on movement
-      const dx = game.player.x - (game.player.prevX || game.player.x);
-      game.player.racketAngle = dx * 0.05;
-      game.player.prevX = game.player.x;
+      // Keep player paddle in bounds
+      game.player.y = Math.max(0, Math.min(canvas.height - game.player.height, game.player.y));
+
+      // CPU AI - follow ball with some delay
+      const cpuCenter = game.cpu.y + game.cpu.height / 2;
+      const ballY = game.ball.y;
+
+      if (cpuCenter < ballY - 20) {
+        game.cpu.y += game.cpu.speed;
+      } else if (cpuCenter > ballY + 20) {
+        game.cpu.y -= game.cpu.speed;
+      }
+
+      // Keep CPU paddle in bounds
+      game.cpu.y = Math.max(0, Math.min(canvas.height - game.cpu.height, game.cpu.y));
 
       // Update ball
-      if (game.ball.active) {
-        game.ball.x += game.ball.velocityX;
-        game.ball.y += game.ball.velocityY;
+      game.ball.x += game.ball.velocityX;
+      game.ball.y += game.ball.velocityY;
 
-        // Ball trail effect
-        game.ball.trail.push({ x: game.ball.x, y: game.ball.y });
-        if (game.ball.trail.length > 10) {
-          game.ball.trail.shift();
+      // Ball trail
+      game.ball.trail.push({ x: game.ball.x, y: game.ball.y });
+      if (game.ball.trail.length > 8) {
+        game.ball.trail.shift();
+      }
+
+      // Top and bottom wall collision
+      if (game.ball.y - game.ball.radius < 0 || game.ball.y + game.ball.radius > canvas.height) {
+        game.ball.velocityY *= -1;
+        game.ball.y = game.ball.y < canvas.height / 2 ? game.ball.radius : canvas.height - game.ball.radius;
+        createParticles(game.ball.x, game.ball.y, '#45b8ac', 10);
+      }
+
+      // Player paddle collision
+      if (game.ball.x - game.ball.radius < game.player.x + game.player.width &&
+          game.ball.x + game.ball.radius > game.player.x &&
+          game.ball.y > game.player.y &&
+          game.ball.y < game.player.y + game.player.height) {
+
+        // Calculate hit position on paddle
+        const hitPos = (game.ball.y - (game.player.y + game.player.height / 2)) / (game.player.height / 2);
+        game.ball.velocityY = hitPos * 6;
+        game.ball.velocityX = Math.abs(game.ball.velocityX);
+        game.ball.x = game.player.x + game.player.width + game.ball.radius;
+
+        // Increase speed slightly
+        game.ball.velocityX *= 1.05;
+        game.ball.speed = Math.sqrt(game.ball.velocityX ** 2 + game.ball.velocityY ** 2);
+
+        game.rally++;
+        createParticles(game.ball.x, game.ball.y, '#efc050', 15);
+      }
+
+      // CPU paddle collision
+      if (game.ball.x + game.ball.radius > game.cpu.x &&
+          game.ball.x - game.ball.radius < game.cpu.x + game.cpu.width &&
+          game.ball.y > game.cpu.y &&
+          game.ball.y < game.cpu.y + game.cpu.height) {
+
+        const hitPos = (game.ball.y - (game.cpu.y + game.cpu.height / 2)) / (game.cpu.height / 2);
+        game.ball.velocityY = hitPos * 6;
+        game.ball.velocityX = -Math.abs(game.ball.velocityX);
+        game.ball.x = game.cpu.x - game.ball.radius;
+
+        game.ball.velocityX *= 1.05;
+        game.ball.speed = Math.sqrt(game.ball.velocityX ** 2 + game.ball.velocityY ** 2);
+
+        game.rally++;
+        createParticles(game.ball.x, game.ball.y, '#ff6b6b', 15);
+      }
+
+      // Score - ball out of bounds
+      if (game.ball.x < 0) {
+        game.cpuScore++;
+        createParticles(game.ball.x, game.ball.y, '#ff0000', 30);
+        if (game.cpuScore >= game.maxScore) {
+          endGame('CPU');
+        } else {
+          resetBall();
         }
-
-        // Ball gravity and air resistance
-        game.ball.velocityY += 0.3;
-
-        // Wall collision
-        if (game.ball.x - game.ball.radius < 0 || game.ball.x + game.ball.radius > canvas.width) {
-          game.ball.velocityX *= -0.8;
-          game.ball.x = game.ball.x < canvas.width / 2 ? game.ball.radius : canvas.width - game.ball.radius;
-          createParticles(game.ball.x, game.ball.y, '#fff', 8);
-        }
-
-        // Player collision (racket)
-        const playerRacketY = game.player.y - 20;
-        const playerRacketX = game.player.x + game.player.width / 2;
-
-        if (game.ball.y + game.ball.radius > playerRacketY &&
-            game.ball.y - game.ball.radius < playerRacketY + 20 &&
-            game.ball.x > game.player.x - 20 &&
-            game.ball.x < game.player.x + game.player.width + 20 &&
-            game.lastHit !== 'player') {
-
-          // Hit the ball back
-          const hitAngle = (game.ball.x - playerRacketX) / 80;
-          const power = game.powerShot ? 1.5 : 1;
-          game.ball.velocityX = hitAngle * 8 * power;
-          game.ball.velocityY = -12 * game.speed * power;
-          game.ball.y = playerRacketY - game.ball.radius;
-          game.lastHit = 'player';
-          game.rally++;
-
-          // Score and effects
-          const points = Math.floor(10 * game.speed * power);
-          game.score += points;
-
-          if (game.powerShot) {
-            createParticles(game.ball.x, game.ball.y, '#efc050', 20);
-            showPowerPopup('POWER SHOT! +' + points);
-          } else {
-            createParticles(game.ball.x, game.ball.y, '#45b8ac', 15);
-          }
-
-          // Increase speed every 5 hits
-          if (game.rally % 5 === 0) {
-            game.speed += 0.1;
-            showPowerPopup('SPEED UP!');
-          }
-
-          if (game.rally > game.bestRally) {
-            game.bestRally = game.rally;
-          }
-        }
-
-        // Opponent AI
-        game.opponent.targetX = game.ball.x - game.opponent.width / 2;
-        game.opponent.x += (game.opponent.targetX - game.opponent.x) * 0.15;
-        game.opponent.x = Math.max(0, Math.min(canvas.width - game.opponent.width, game.opponent.x));
-
-        // Opponent collision
-        const opponentRacketY = game.opponent.y + game.opponent.height + 20;
-        const opponentRacketX = game.opponent.x + game.opponent.width / 2;
-
-        if (game.ball.y - game.ball.radius < opponentRacketY &&
-            game.ball.y + game.ball.radius > opponentRacketY - 20 &&
-            game.ball.x > game.opponent.x - 20 &&
-            game.ball.x < game.opponent.x + game.opponent.width + 20 &&
-            game.lastHit !== 'opponent') {
-
-          const hitAngle = (game.ball.x - opponentRacketX) / 80;
-          game.ball.velocityX = hitAngle * 6;
-          game.ball.velocityY = 10 * game.speed;
-          game.ball.y = opponentRacketY + game.ball.radius;
-          game.lastHit = 'opponent';
-          createParticles(game.ball.x, game.ball.y, '#ff6b6b', 12);
-        }
-
-        // Ball out of bounds (bottom)
-        if (game.ball.y > canvas.height + 50) {
-          gameOver();
-        }
-
-        // Ball out of bounds (top)
-        if (game.ball.y < -50) {
-          game.rally = 0;
-          serveBall();
+      } else if (game.ball.x > canvas.width) {
+        game.playerScore++;
+        createParticles(game.ball.x, game.ball.y, '#00ff00', 30);
+        if (game.playerScore >= game.maxScore) {
+          endGame('Player');
+        } else {
+          resetBall();
         }
       }
 
@@ -456,7 +409,6 @@
       game.particles.forEach((p, i) => {
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += 0.2;
         p.life--;
         if (p.life <= 0) {
           game.particles.splice(i, 1);
@@ -468,192 +420,78 @@
 
     // Draw game
     function draw() {
-      // Clear canvas with gradient
-      const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      skyGrad.addColorStop(0, '#87ceeb');
-      skyGrad.addColorStop(1, '#4a9eff');
-      ctx.fillStyle = skyGrad;
+      // Clear canvas (black background)
+      ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw court
-      ctx.fillStyle = '#2d8b57';
-      ctx.fillRect(0, canvas.height - 150, canvas.width, 150);
-
-      // Court lines
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(0, canvas.height - 150);
-      ctx.lineTo(canvas.width, canvas.height - 150);
-      ctx.stroke();
-
-      // Net
+      // Draw center line (dashed)
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 3;
+      ctx.setLineDash([10, 10]);
       ctx.beginPath();
-      ctx.moveTo(0, canvas.height / 2);
-      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.moveTo(canvas.width / 2, 0);
+      ctx.lineTo(canvas.width / 2, canvas.height);
       ctx.stroke();
+      ctx.setLineDash([]);
 
-      // Net posts
-      ctx.fillStyle = '#666';
-      ctx.fillRect(-5, canvas.height / 2 - 50, 10, 50);
-      ctx.fillRect(canvas.width - 5, canvas.height / 2 - 50, 10, 50);
-
-      // Draw opponent (top)
-      ctx.save();
-      ctx.translate(game.opponent.x + game.opponent.width / 2, game.opponent.y + game.opponent.height / 2);
-
-      // Opponent body
-      ctx.fillStyle = '#ff6b6b';
-      ctx.fillRect(-25, -35, 50, 60);
-
-      // Head
-      ctx.fillStyle = '#ffdbac';
-      ctx.beginPath();
-      ctx.arc(0, -50, 18, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Racket
-      ctx.strokeStyle = '#8b4513';
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.moveTo(30, -20);
-      ctx.lineTo(50, -10);
-      ctx.stroke();
-
-      // Racket head
-      ctx.strokeStyle = '#efc050';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(50, -10, 15, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Strings
-      ctx.strokeStyle = '#efc050';
-      ctx.lineWidth = 1;
-      for (let i = -10; i <= 10; i += 5) {
-        ctx.beginPath();
-        ctx.moveTo(50 + i, -25);
-        ctx.lineTo(50 + i, 5);
-        ctx.stroke();
-      }
-
-      ctx.restore();
-
-      // Draw player (bottom) - MUCH LARGER AND MORE VISIBLE
-      ctx.save();
-      ctx.translate(game.player.x + game.player.width / 2, game.player.y + game.player.height / 2);
-
-      // Player body (bright color)
+      // Draw scores (large, centered at top)
       ctx.fillStyle = '#45b8ac';
-      ctx.fillRect(-30, -40, 60, 70);
+      ctx.font = 'bold 48px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(game.playerScore.toString(), canvas.width / 4, 60);
 
-      // Head (larger)
-      ctx.fillStyle = '#ffdbac';
-      ctx.beginPath();
-      ctx.arc(0, -60, 22, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillText(game.cpuScore.toString(), (canvas.width / 4) * 3, 60);
 
-      // Eyes
-      ctx.fillStyle = '#000';
-      ctx.beginPath();
-      ctx.arc(-8, -60, 3, 0, Math.PI * 2);
-      ctx.arc(8, -60, 3, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Smile
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(0, -55, 8, 0, Math.PI);
-      ctx.stroke();
-
-      // Arms
-      ctx.strokeStyle = '#ffdbac';
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.moveTo(-20, -20);
-      ctx.lineTo(-35, 0);
-      ctx.moveTo(20, -20);
-      ctx.lineTo(35, 0);
-      ctx.stroke();
-
-      // Legs
-      ctx.beginPath();
-      ctx.moveTo(-10, 30);
-      ctx.lineTo(-15, 50);
-      ctx.moveTo(10, 30);
-      ctx.lineTo(15, 50);
-      ctx.stroke();
-
-      // Racket (with angle)
-      ctx.save();
-      ctx.rotate(game.player.racketAngle);
-
-      ctx.strokeStyle = '#8b4513';
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.moveTo(35, -10);
-      ctx.lineTo(60, -20);
-      ctx.stroke();
-
-      // Racket head (large and visible)
-      ctx.strokeStyle = '#efc050';
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.arc(60, -20, 20, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Strings
-      ctx.strokeStyle = '#efc050';
-      ctx.lineWidth = 2;
-      for (let i = -15; i <= 15; i += 5) {
-        ctx.beginPath();
-        ctx.moveTo(60 + i, -35);
-        ctx.lineTo(60 + i, -5);
-        ctx.stroke();
-      }
-      for (let i = -15; i <= 15; i += 5) {
-        ctx.beginPath();
-        ctx.moveTo(45, -20 + i);
-        ctx.lineTo(75, -20 + i);
-        ctx.stroke();
+      // Draw rally counter (center top)
+      if (game.rally > 0) {
+        ctx.fillStyle = '#efc050';
+        ctx.font = 'bold 24px monospace';
+        ctx.fillText('Rally: ' + game.rally, canvas.width / 2, 30);
       }
 
-      ctx.restore();
-      ctx.restore();
+      // Draw player paddle (left - bright cyan)
+      ctx.fillStyle = '#45b8ac';
+      ctx.fillRect(game.player.x, game.player.y, game.player.width, game.player.height);
+
+      // Paddle glow
+      ctx.shadowColor = '#45b8ac';
+      ctx.shadowBlur = 20;
+      ctx.fillRect(game.player.x, game.player.y, game.player.width, game.player.height);
+      ctx.shadowBlur = 0;
+
+      // Draw CPU paddle (right - bright red)
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillRect(game.cpu.x, game.cpu.y, game.cpu.width, game.cpu.height);
+
+      ctx.shadowColor = '#ff6b6b';
+      ctx.shadowBlur = 20;
+      ctx.fillRect(game.cpu.x, game.cpu.y, game.cpu.width, game.cpu.height);
+      ctx.shadowBlur = 0;
 
       // Draw ball trail
-      if (game.ball.active) {
-        game.ball.trail.forEach((pos, i) => {
-          ctx.globalAlpha = i / game.ball.trail.length * 0.5;
-          ctx.fillStyle = '#ffeb3b';
-          ctx.beginPath();
-          ctx.arc(pos.x, pos.y, game.ball.radius * 0.7, 0, Math.PI * 2);
-          ctx.fill();
-        });
-        ctx.globalAlpha = 1;
-
-        // Draw ball (bright and visible)
-        ctx.fillStyle = '#ffeb3b';
-        ctx.beginPath();
-        ctx.arc(game.ball.x, game.ball.y, game.ball.radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Ball highlight
+      game.ball.trail.forEach((pos, i) => {
+        ctx.globalAlpha = (i / game.ball.trail.length) * 0.5;
         ctx.fillStyle = '#fff';
         ctx.beginPath();
-        ctx.arc(game.ball.x - 4, game.ball.y - 4, game.ball.radius * 0.3, 0, Math.PI * 2);
+        ctx.arc(pos.x, pos.y, game.ball.radius * 0.7, 0, Math.PI * 2);
         ctx.fill();
+      });
+      ctx.globalAlpha = 1;
 
-        // Ball outline
-        ctx.strokeStyle = '#ffa500';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(game.ball.x, game.ball.y, game.ball.radius, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      // Draw ball (bright white)
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(game.ball.x, game.ball.y, game.ball.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ball glow
+      ctx.shadowColor = '#fff';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(game.ball.x, game.ball.y, game.ball.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
 
       // Draw particles
       game.particles.forEach(p => {
@@ -664,28 +502,6 @@
         ctx.fill();
       });
       ctx.globalAlpha = 1;
-
-      // Power shot indicator
-      if (game.powerShot) {
-        ctx.strokeStyle = '#efc050';
-        ctx.lineWidth = 4;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.arc(game.player.x + game.player.width / 2, game.player.y, 80, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    }
-
-    // Serve ball
-    function serveBall() {
-      game.ball.x = game.opponent.x + game.opponent.width / 2;
-      game.ball.y = game.opponent.y + game.opponent.height + 40;
-      game.ball.velocityX = (Math.random() - 0.5) * 4;
-      game.ball.velocityY = 8;
-      game.ball.active = true;
-      game.ball.trail = [];
-      game.lastHit = 'opponent';
     }
 
     // Game loop
@@ -697,49 +513,49 @@
 
     // Update UI
     function updateUI() {
-      document.getElementById('score').textContent = Math.floor(game.score);
-      document.getElementById('bestRally').textContent = game.bestRally;
-      document.getElementById('speed').textContent = game.speed.toFixed(1) + 'x';
+      document.getElementById('playerScore').textContent = game.playerScore;
+      document.getElementById('cpuScore').textContent = game.cpuScore;
+      document.getElementById('rally').textContent = game.rally;
     }
 
     // Start game
     function startGame() {
       game.running = true;
-      game.score = 0;
-      game.rally = 0;
-      game.bestRally = 0;
-      game.speed = 1;
-      game.particles = [];
-      game.player.y = canvas.height - 100;
-      game.player.jumping = false;
       document.getElementById('gameOver').style.display = 'none';
-      serveBall();
+      resetBall();
       updateUI();
     }
 
-    // Game over
-    function gameOver() {
+    // End game
+    function endGame(winner) {
       game.running = false;
-      game.ball.active = false;
-      document.getElementById('finalScore').textContent = Math.floor(game.score);
-      document.getElementById('finalBestRally').textContent = game.bestRally;
+      document.getElementById('winnerText').textContent = winner === 'Player' ? 'You Win!' : 'CPU Wins!';
+      document.getElementById('winnerText').style.color = winner === 'Player' ? '#00ff00' : '#ff6b6b';
+      document.getElementById('finalPlayerScore').textContent = game.playerScore;
+      document.getElementById('finalCPUScore').textContent = game.cpuScore;
       document.getElementById('gameOver').style.display = 'flex';
-      createParticles(game.ball.x, canvas.height, '#ff0000', 30);
     }
 
     // Reset game
     function resetGame() {
+      game.playerScore = 0;
+      game.cpuScore = 0;
+      game.rally = 0;
+      game.ball.speed = 6;
       startGame();
     }
 
     // Start game loop
     gameLoop();
 
-    // Instruction on load
+    // Draw initial screen
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 32px Segoe UI';
+    ctx.font = 'bold 32px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('Click to Start!', canvas.width / 2, canvas.height / 2);
+    ctx.fillText('CLICK TO START', canvas.width / 2, canvas.height / 2);
+    ctx.font = 'bold 20px monospace';
+    ctx.fillStyle = '#efc050';
+    ctx.fillText('First to 10 wins!', canvas.width / 2, canvas.height / 2 + 40);
   </script>
 </body>
 </html>
