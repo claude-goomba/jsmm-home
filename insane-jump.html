@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insane Jump - JSMM Games</title>
+  <style>
+    body {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #gameContainer {
+      background: rgba(35, 43, 58, 0.8);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      text-align: center;
+      max-width: 900px;
+    }
+
+    h1 {
+      color: #efc050;
+      font-size: 3em;
+      margin: 0 0 10px 0;
+      text-shadow: 0 0 20px rgba(239, 192, 80, 0.6);
+    }
+
+    .subtitle {
+      color: #45b8ac;
+      font-size: 1.2em;
+      margin-bottom: 20px;
+    }
+
+    #gameCanvas {
+      background: linear-gradient(180deg, #87ceeb 0%, #f0e68c 70%, #8b7355 100%);
+      border-radius: 12px;
+      display: block;
+      margin: 20px auto;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      cursor: crosshair;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      margin: 20px 0;
+      font-size: 1.3em;
+      gap: 30px;
+    }
+
+    .stat {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 15px 30px;
+      border-radius: 12px;
+      border: 2px solid #efc050;
+      flex: 1;
+    }
+
+    .stat-label {
+      color: #b3b3b3;
+      font-size: 0.8em;
+    }
+
+    .stat-value {
+      color: #efc050;
+      font-size: 1.5em;
+      font-weight: bold;
+    }
+
+    .controls {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      border-radius: 12px;
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    .controls h3 {
+      color: #efc050;
+      margin-top: 0;
+    }
+
+    .controls p {
+      color: #b3b3b3;
+      margin: 8px 0;
+      font-size: 1.1em;
+    }
+
+    .key {
+      display: inline-block;
+      background: #45b8ac;
+      color: #fff;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-weight: bold;
+      margin: 0 5px;
+    }
+
+    button {
+      background: linear-gradient(135deg, #efc050, #ff9800);
+      color: #fff;
+      border: none;
+      padding: 15px 40px;
+      border-radius: 10px;
+      font-size: 1.2em;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 10px;
+      box-shadow: 0 4px 16px rgba(239, 192, 80, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(239, 192, 80, 0.6);
+    }
+
+    button:active {
+      transform: translateY(-1px);
+    }
+
+    #gameOver {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gameOverContent {
+      background: rgba(35, 43, 58, 0.95);
+      padding: 50px;
+      border-radius: 20px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+      border: 3px solid #efc050;
+    }
+
+    .gameOverContent h2 {
+      color: #efc050;
+      font-size: 3em;
+      margin: 0 0 20px 0;
+    }
+
+    .gameOverContent p {
+      color: #b3b3b3;
+      font-size: 1.5em;
+      margin: 10px 0;
+    }
+
+    .trick-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(239, 192, 80, 0.95);
+      color: #1a1a2e;
+      padding: 20px 40px;
+      border-radius: 15px;
+      font-size: 2em;
+      font-weight: bold;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 999;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    }
+
+    .trick-popup.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <h1>🛹 Insane Jump</h1>
+    <p class="subtitle">Pull off sick tricks and rack up points!</p>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Score</div>
+        <div class="stat-value" id="score">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Best Trick</div>
+        <div class="stat-value" id="bestTrick">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Combo</div>
+        <div class="stat-value" id="combo">0x</div>
+      </div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+
+    <div class="controls">
+      <h3>Controls</h3>
+      <p><span class="key">SPACE</span> Jump / Start</p>
+      <p><span class="key">←</span> <span class="key">→</span> Flip tricks</p>
+      <p><span class="key">↑</span> <span class="key">↓</span> Rotation tricks</p>
+      <p><span class="key">Z</span> Kickflip | <span class="key">X</span> Heelflip | <span class="key">C</span> Shove-it</p>
+    </div>
+
+    <div>
+      <button onclick="resetGame()">Restart Game</button>
+      <a href="index.html" style="text-decoration: none;"><button>Back to Home</button></a>
+    </div>
+  </div>
+
+  <div id="gameOver">
+    <div class="gameOverContent">
+      <h2>Game Over!</h2>
+      <p>Final Score: <span id="finalScore">0</span></p>
+      <p>Best Trick: <span id="finalBestTrick">0</span></p>
+      <button onclick="resetGame()">Play Again</button>
+    </div>
+  </div>
+
+  <div class="trick-popup" id="trickPopup"></div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Game state
+    let game = {
+      running: false,
+      score: 0,
+      bestTrick: 0,
+      combo: 0,
+      ground: 400,
+      player: {
+        x: 150,
+        y: 400,
+        width: 30,
+        height: 50,
+        velocityY: 0,
+        velocityX: 3,
+        jumping: false,
+        rotation: 0,
+        flip: 0,
+        tricks: []
+      },
+      obstacles: [],
+      ramps: [],
+      particles: [],
+      keys: {},
+      lastObstacle: 0,
+      gameSpeed: 3
+    };
+
+    // Trick definitions
+    const tricks = {
+      'kickflip': { name: 'Kickflip', points: 100, key: 'z' },
+      'heelflip': { name: 'Heelflip', points: 100, key: 'x' },
+      'shoveit': { name: 'Shove-it', points: 150, key: 'c' },
+      '180': { name: '180°', points: 200, rotation: Math.PI },
+      '360': { name: '360°', points: 400, rotation: Math.PI * 2 },
+      '540': { name: '540°', points: 600, rotation: Math.PI * 3 },
+      '720': { name: '720°', points: 1000, rotation: Math.PI * 4 }
+    };
+
+    // Input handling
+    document.addEventListener('keydown', (e) => {
+      game.keys[e.key.toLowerCase()] = true;
+
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (!game.running) {
+          startGame();
+        } else if (!game.player.jumping) {
+          jump();
+        }
+      }
+
+      // Trick inputs (only when in air)
+      if (game.player.jumping) {
+        if (e.key.toLowerCase() === 'z') {
+          performTrick('kickflip');
+        }
+        if (e.key.toLowerCase() === 'x') {
+          performTrick('heelflip');
+        }
+        if (e.key.toLowerCase() === 'c') {
+          performTrick('shoveit');
+        }
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      game.keys[e.key.toLowerCase()] = false;
+    });
+
+    // Jump
+    function jump() {
+      game.player.jumping = true;
+      game.player.velocityY = -15;
+      game.player.tricks = [];
+    }
+
+    // Perform trick
+    function performTrick(trickName) {
+      if (!game.player.tricks.includes(trickName)) {
+        game.player.tricks.push(trickName);
+
+        if (trickName === 'kickflip' || trickName === 'heelflip') {
+          game.player.flip += trickName === 'kickflip' ? 1 : -1;
+        }
+      }
+    }
+
+    // Calculate trick score
+    function calculateTrickScore() {
+      let score = 0;
+      let trickNames = [];
+
+      // Add flip tricks
+      game.player.tricks.forEach(trick => {
+        if (tricks[trick]) {
+          score += tricks[trick].points;
+          trickNames.push(tricks[trick].name);
+        }
+      });
+
+      // Add rotation tricks
+      const totalRotation = Math.abs(game.player.rotation);
+      if (totalRotation >= Math.PI * 4) {
+        score += tricks['720'].points;
+        trickNames.push('720°');
+      } else if (totalRotation >= Math.PI * 3) {
+        score += tricks['540'].points;
+        trickNames.push('540°');
+      } else if (totalRotation >= Math.PI * 2) {
+        score += tricks['360'].points;
+        trickNames.push('360°');
+      } else if (totalRotation >= Math.PI) {
+        score += tricks['180'].points;
+        trickNames.push('180°');
+      }
+
+      // Combo multiplier
+      if (score > 0) {
+        game.combo++;
+        score *= game.combo;
+      }
+
+      return { score, trickNames };
+    }
+
+    // Show trick popup
+    function showTrickPopup(trickNames, score) {
+      const popup = document.getElementById('trickPopup');
+      popup.textContent = `${trickNames.join(' + ')} +${score}!`;
+      popup.classList.add('show');
+
+      setTimeout(() => {
+        popup.classList.remove('show');
+      }, 1500);
+    }
+
+    // Create obstacle
+    function createObstacle() {
+      const type = Math.random() > 0.5 ? 'box' : 'cone';
+      game.obstacles.push({
+        x: canvas.width,
+        y: game.ground,
+        width: 40,
+        height: type === 'box' ? 40 : 50,
+        type: type
+      });
+    }
+
+    // Create ramp
+    function createRamp() {
+      game.ramps.push({
+        x: canvas.width,
+        y: game.ground,
+        width: 100,
+        height: 60
+      });
+    }
+
+    // Create particles
+    function createParticles(x, y, color) {
+      for (let i = 0; i < 10; i++) {
+        game.particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 4,
+          vy: (Math.random() - 0.5) * 4,
+          life: 30,
+          color: color
+        });
+      }
+    }
+
+    // Update game
+    function update() {
+      if (!game.running) return;
+
+      // Update player physics
+      if (game.player.jumping) {
+        game.player.velocityY += 0.6; // gravity
+        game.player.y += game.player.velocityY;
+
+        // Rotation with arrow keys
+        if (game.keys['arrowleft']) {
+          game.player.rotation -= 0.15;
+        }
+        if (game.keys['arrowright']) {
+          game.player.rotation += 0.15;
+        }
+        if (game.keys['arrowup']) {
+          game.player.rotation += 0.12;
+        }
+        if (game.keys['arrowdown']) {
+          game.player.rotation -= 0.12;
+        }
+
+        // Landing
+        if (game.player.y >= game.ground) {
+          game.player.y = game.ground;
+          game.player.jumping = false;
+          game.player.velocityY = 0;
+
+          // Score tricks on landing
+          const result = calculateTrickScore();
+          if (result.score > 0) {
+            game.score += result.score;
+            if (result.score > game.bestTrick) {
+              game.bestTrick = result.score;
+            }
+            showTrickPopup(result.trickNames, result.score);
+            createParticles(game.player.x, game.player.y, '#efc050');
+          } else {
+            game.combo = 0; // Reset combo if no trick
+          }
+
+          // Reset rotation and flip
+          game.player.rotation = 0;
+          game.player.flip = 0;
+          game.player.tricks = [];
+        }
+      }
+
+      // Spawn obstacles and ramps
+      if (Math.random() < 0.01 && Date.now() - game.lastObstacle > 2000) {
+        if (Math.random() > 0.3) {
+          createObstacle();
+        } else {
+          createRamp();
+        }
+        game.lastObstacle = Date.now();
+      }
+
+      // Update obstacles
+      game.obstacles.forEach((obs, i) => {
+        obs.x -= game.gameSpeed;
+
+        // Collision detection
+        if (!game.player.jumping &&
+            game.player.x + game.player.width > obs.x &&
+            game.player.x < obs.x + obs.width &&
+            game.player.y + game.player.height > obs.y - obs.height) {
+          gameOver();
+        }
+
+        // Remove off-screen obstacles
+        if (obs.x + obs.width < 0) {
+          game.obstacles.splice(i, 1);
+          game.score += 10;
+        }
+      });
+
+      // Update ramps
+      game.ramps.forEach((ramp, i) => {
+        ramp.x -= game.gameSpeed;
+
+        // Auto-jump on ramp
+        if (!game.player.jumping &&
+            game.player.x + game.player.width > ramp.x &&
+            game.player.x < ramp.x + ramp.width) {
+          jump();
+          game.player.velocityY = -18; // Extra boost
+        }
+
+        // Remove off-screen ramps
+        if (ramp.x + ramp.width < 0) {
+          game.ramps.splice(i, 1);
+          game.score += 50;
+        }
+      });
+
+      // Update particles
+      game.particles.forEach((p, i) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        if (p.life <= 0) {
+          game.particles.splice(i, 1);
+        }
+      });
+
+      // Increase speed over time
+      game.gameSpeed += 0.001;
+
+      updateUI();
+    }
+
+    // Draw game
+    function draw() {
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw sky gradient (already in canvas background)
+
+      // Draw ground
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(0, game.ground + 50, canvas.width, canvas.height - game.ground - 50);
+
+      // Draw ground line
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, game.ground + 50);
+      ctx.lineTo(canvas.width, game.ground + 50);
+      ctx.stroke();
+
+      // Draw ramps
+      game.ramps.forEach(ramp => {
+        ctx.fillStyle = '#8b7355';
+        ctx.beginPath();
+        ctx.moveTo(ramp.x, game.ground + 50);
+        ctx.lineTo(ramp.x + ramp.width, game.ground + 50);
+        ctx.lineTo(ramp.x + ramp.width, game.ground + 50 - ramp.height);
+        ctx.closePath();
+        ctx.fill();
+
+        // Ramp outline
+        ctx.strokeStyle = '#654321';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+
+      // Draw obstacles
+      game.obstacles.forEach(obs => {
+        if (obs.type === 'box') {
+          ctx.fillStyle = '#8b4513';
+          ctx.fillRect(obs.x, obs.y + 50 - obs.height, obs.width, obs.height);
+          ctx.strokeStyle = '#654321';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(obs.x, obs.y + 50 - obs.height, obs.width, obs.height);
+        } else {
+          // Traffic cone
+          ctx.fillStyle = '#ff6600';
+          ctx.beginPath();
+          ctx.moveTo(obs.x + obs.width / 2, obs.y + 50 - obs.height);
+          ctx.lineTo(obs.x, obs.y + 50);
+          ctx.lineTo(obs.x + obs.width, obs.y + 50);
+          ctx.closePath();
+          ctx.fill();
+
+          // White stripe
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(obs.x + 5, obs.y + 25, obs.width - 10, 8);
+        }
+      });
+
+      // Draw particles
+      game.particles.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life / 30;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+
+      // Draw player (skateboarder)
+      ctx.save();
+      ctx.translate(game.player.x + game.player.width / 2, game.player.y + game.player.height / 2);
+      ctx.rotate(game.player.rotation);
+
+      // Board
+      ctx.fillStyle = '#efc050';
+      ctx.fillRect(-20, 15, 40, 6);
+
+      // Wheels
+      ctx.fillStyle = '#333';
+      ctx.beginPath();
+      ctx.arc(-12, 18, 4, 0, Math.PI * 2);
+      ctx.arc(12, 18, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Body
+      ctx.strokeStyle = '#45b8ac';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(0, -10);
+      ctx.lineTo(0, 5);
+      ctx.stroke();
+
+      // Arms
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-8, 8);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(8, 8);
+      ctx.stroke();
+
+      // Legs
+      ctx.beginPath();
+      ctx.moveTo(0, 5);
+      ctx.lineTo(-6, 15);
+      ctx.moveTo(0, 5);
+      ctx.lineTo(6, 15);
+      ctx.stroke();
+
+      // Head
+      ctx.fillStyle = '#ffdbac';
+      ctx.beginPath();
+      ctx.arc(0, -15, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+
+      // Draw speed lines when jumping
+      if (game.player.jumping) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 5; i++) {
+          ctx.beginPath();
+          ctx.moveTo(game.player.x - 20 - i * 15, game.player.y + i * 10);
+          ctx.lineTo(game.player.x - 40 - i * 15, game.player.y + i * 10);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Game loop
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Update UI
+    function updateUI() {
+      document.getElementById('score').textContent = Math.floor(game.score);
+      document.getElementById('bestTrick').textContent = game.bestTrick;
+      document.getElementById('combo').textContent = game.combo + 'x';
+    }
+
+    // Start game
+    function startGame() {
+      game.running = true;
+      game.score = 0;
+      game.bestTrick = 0;
+      game.combo = 0;
+      game.obstacles = [];
+      game.ramps = [];
+      game.particles = [];
+      game.gameSpeed = 3;
+      game.player.y = game.ground;
+      game.player.jumping = false;
+      game.player.rotation = 0;
+      game.player.flip = 0;
+      game.lastObstacle = Date.now();
+      document.getElementById('gameOver').style.display = 'none';
+      updateUI();
+    }
+
+    // Game over
+    function gameOver() {
+      game.running = false;
+      document.getElementById('finalScore').textContent = Math.floor(game.score);
+      document.getElementById('finalBestTrick').textContent = game.bestTrick;
+      document.getElementById('gameOver').style.display = 'flex';
+      createParticles(game.player.x, game.player.y, '#ff0000');
+    }
+
+    // Reset game
+    function resetGame() {
+      startGame();
+    }
+
+    // Start game loop
+    gameLoop();
+  </script>
+</body>
+</html>
