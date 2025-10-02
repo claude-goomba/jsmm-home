@@ -41,7 +41,7 @@
     }
 
     #gameCanvas {
-      background: linear-gradient(180deg, #87ceeb 0%, #f0e68c 70%, #8b7355 100%);
+      background: linear-gradient(180deg, #87ceeb 0%, #4a9eff 100%);
       border-radius: 12px;
       display: block;
       margin: 20px auto;
@@ -162,7 +162,7 @@
       margin: 10px 0;
     }
 
-    .trick-popup {
+    .power-popup {
       position: fixed;
       top: 50%;
       left: 50%;
@@ -180,15 +180,15 @@
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
     }
 
-    .trick-popup.show {
+    .power-popup.show {
       opacity: 1;
     }
   </style>
 </head>
 <body>
   <div id="gameContainer">
-    <h1>🛹 Insane Jump</h1>
-    <p class="subtitle">Pull off sick tricks and rack up points!</p>
+    <h1>🎾 Insane Jump Tennis</h1>
+    <p class="subtitle">Smash your way to victory!</p>
 
     <div class="stats">
       <div class="stat">
@@ -196,23 +196,22 @@
         <div class="stat-value" id="score">0</div>
       </div>
       <div class="stat">
-        <div class="stat-label">Best Trick</div>
-        <div class="stat-value" id="bestTrick">0</div>
+        <div class="stat-label">Best Rally</div>
+        <div class="stat-value" id="bestRally">0</div>
       </div>
       <div class="stat">
-        <div class="stat-label">Combo</div>
-        <div class="stat-value" id="combo">0x</div>
+        <div class="stat-label">Speed</div>
+        <div class="stat-value" id="speed">1x</div>
       </div>
     </div>
 
-    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
 
     <div class="controls">
       <h3>Controls</h3>
-      <p><span class="key">SPACE</span> Jump / Start</p>
-      <p><span class="key">←</span> <span class="key">→</span> Flip tricks</p>
-      <p><span class="key">↑</span> <span class="key">↓</span> Rotation tricks</p>
-      <p><span class="key">Z</span> Kickflip | <span class="key">X</span> Heelflip | <span class="key">C</span> Shove-it</p>
+      <p><span class="key">MOUSE</span> Move paddle left and right</p>
+      <p><span class="key">CLICK</span> Power shot / Start game</p>
+      <p><span class="key">SPACE</span> Jump for aerial shots</p>
     </div>
 
     <div>
@@ -225,12 +224,12 @@
     <div class="gameOverContent">
       <h2>Game Over!</h2>
       <p>Final Score: <span id="finalScore">0</span></p>
-      <p>Best Trick: <span id="finalBestTrick">0</span></p>
+      <p>Best Rally: <span id="finalBestRally">0</span></p>
       <button onclick="resetGame()">Play Again</button>
     </div>
   </div>
 
-  <div class="trick-popup" id="trickPopup"></div>
+  <div class="power-popup" id="powerPopup"></div>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
@@ -240,415 +239,453 @@
     let game = {
       running: false,
       score: 0,
-      bestTrick: 0,
-      combo: 0,
-      ground: 400,
+      rally: 0,
+      bestRally: 0,
+      speed: 1,
+      mouseX: canvas.width / 2,
+      mouseY: canvas.height - 50,
       player: {
-        x: 150,
-        y: 400,
-        width: 30,
-        height: 50,
+        x: canvas.width / 2,
+        y: canvas.height - 100,
+        width: 80,
+        height: 100,
         velocityY: 0,
-        velocityX: 3,
         jumping: false,
-        rotation: 0,
-        flip: 0,
-        tricks: []
+        racketAngle: 0
       },
-      obstacles: [],
-      ramps: [],
+      ball: {
+        x: canvas.width / 2,
+        y: 100,
+        radius: 12,
+        velocityX: 0,
+        velocityY: 0,
+        active: false,
+        trail: []
+      },
+      opponent: {
+        x: canvas.width / 2,
+        y: 80,
+        width: 80,
+        height: 100,
+        targetX: canvas.width / 2
+      },
       particles: [],
-      keys: {},
-      lastObstacle: 0,
-      gameSpeed: 3
+      powerShot: false,
+      lastHit: null
     };
 
-    // Trick definitions
-    const tricks = {
-      'kickflip': { name: 'Kickflip', points: 100, key: 'z' },
-      'heelflip': { name: 'Heelflip', points: 100, key: 'x' },
-      'shoveit': { name: 'Shove-it', points: 150, key: 'c' },
-      '180': { name: '180°', points: 200, rotation: Math.PI },
-      '360': { name: '360°', points: 400, rotation: Math.PI * 2 },
-      '540': { name: '540°', points: 600, rotation: Math.PI * 3 },
-      '720': { name: '720°', points: 1000, rotation: Math.PI * 4 }
-    };
+    // Mouse controls
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      game.mouseX = e.clientX - rect.left;
+      game.mouseY = e.clientY - rect.top;
+    });
 
-    // Input handling
+    canvas.addEventListener('click', (e) => {
+      if (!game.running) {
+        startGame();
+      } else {
+        game.powerShot = true;
+        setTimeout(() => { game.powerShot = false; }, 300);
+      }
+    });
+
+    // Keyboard controls
     document.addEventListener('keydown', (e) => {
-      game.keys[e.key.toLowerCase()] = true;
-
       if (e.key === ' ') {
         e.preventDefault();
         if (!game.running) {
           startGame();
         } else if (!game.player.jumping) {
-          jump();
-        }
-      }
-
-      // Trick inputs (only when in air)
-      if (game.player.jumping) {
-        if (e.key.toLowerCase() === 'z') {
-          performTrick('kickflip');
-        }
-        if (e.key.toLowerCase() === 'x') {
-          performTrick('heelflip');
-        }
-        if (e.key.toLowerCase() === 'c') {
-          performTrick('shoveit');
+          game.player.jumping = true;
+          game.player.velocityY = -18;
         }
       }
     });
 
-    document.addEventListener('keyup', (e) => {
-      game.keys[e.key.toLowerCase()] = false;
-    });
-
-    // Jump
-    function jump() {
-      game.player.jumping = true;
-      game.player.velocityY = -15;
-      game.player.tricks = [];
-    }
-
-    // Perform trick
-    function performTrick(trickName) {
-      if (!game.player.tricks.includes(trickName)) {
-        game.player.tricks.push(trickName);
-
-        if (trickName === 'kickflip' || trickName === 'heelflip') {
-          game.player.flip += trickName === 'kickflip' ? 1 : -1;
-        }
+    // Create particles
+    function createParticles(x, y, color, count = 15) {
+      for (let i = 0; i < count; i++) {
+        game.particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 8,
+          vy: (Math.random() - 0.5) * 8,
+          life: 30,
+          color: color,
+          size: Math.random() * 4 + 2
+        });
       }
     }
 
-    // Calculate trick score
-    function calculateTrickScore() {
-      let score = 0;
-      let trickNames = [];
-
-      // Add flip tricks
-      game.player.tricks.forEach(trick => {
-        if (tricks[trick]) {
-          score += tricks[trick].points;
-          trickNames.push(tricks[trick].name);
-        }
-      });
-
-      // Add rotation tricks
-      const totalRotation = Math.abs(game.player.rotation);
-      if (totalRotation >= Math.PI * 4) {
-        score += tricks['720'].points;
-        trickNames.push('720°');
-      } else if (totalRotation >= Math.PI * 3) {
-        score += tricks['540'].points;
-        trickNames.push('540°');
-      } else if (totalRotation >= Math.PI * 2) {
-        score += tricks['360'].points;
-        trickNames.push('360°');
-      } else if (totalRotation >= Math.PI) {
-        score += tricks['180'].points;
-        trickNames.push('180°');
-      }
-
-      // Combo multiplier
-      if (score > 0) {
-        game.combo++;
-        score *= game.combo;
-      }
-
-      return { score, trickNames };
-    }
-
-    // Show trick popup
-    function showTrickPopup(trickNames, score) {
-      const popup = document.getElementById('trickPopup');
-      popup.textContent = `${trickNames.join(' + ')} +${score}!`;
+    // Show power popup
+    function showPowerPopup(text) {
+      const popup = document.getElementById('powerPopup');
+      popup.textContent = text;
       popup.classList.add('show');
 
       setTimeout(() => {
         popup.classList.remove('show');
-      }, 1500);
-    }
-
-    // Create obstacle
-    function createObstacle() {
-      const type = Math.random() > 0.5 ? 'box' : 'cone';
-      game.obstacles.push({
-        x: canvas.width,
-        y: game.ground,
-        width: 40,
-        height: type === 'box' ? 40 : 50,
-        type: type
-      });
-    }
-
-    // Create ramp
-    function createRamp() {
-      game.ramps.push({
-        x: canvas.width,
-        y: game.ground,
-        width: 100,
-        height: 60
-      });
-    }
-
-    // Create particles
-    function createParticles(x, y, color) {
-      for (let i = 0; i < 10; i++) {
-        game.particles.push({
-          x: x,
-          y: y,
-          vx: (Math.random() - 0.5) * 4,
-          vy: (Math.random() - 0.5) * 4,
-          life: 30,
-          color: color
-        });
-      }
+      }, 1000);
     }
 
     // Update game
     function update() {
       if (!game.running) return;
 
-      // Update player physics
+      // Update player position (follow mouse X)
+      const targetX = game.mouseX - game.player.width / 2;
+      game.player.x += (targetX - game.player.x) * 0.2;
+      game.player.x = Math.max(0, Math.min(canvas.width - game.player.width, game.player.x));
+
+      // Update player jump
       if (game.player.jumping) {
-        game.player.velocityY += 0.6; // gravity
+        game.player.velocityY += 0.8;
         game.player.y += game.player.velocityY;
 
-        // Rotation with arrow keys
-        if (game.keys['arrowleft']) {
-          game.player.rotation -= 0.15;
-        }
-        if (game.keys['arrowright']) {
-          game.player.rotation += 0.15;
-        }
-        if (game.keys['arrowup']) {
-          game.player.rotation += 0.12;
-        }
-        if (game.keys['arrowdown']) {
-          game.player.rotation -= 0.12;
-        }
-
-        // Landing
-        if (game.player.y >= game.ground) {
-          game.player.y = game.ground;
+        if (game.player.y >= canvas.height - 100) {
+          game.player.y = canvas.height - 100;
           game.player.jumping = false;
           game.player.velocityY = 0;
+        }
+      }
 
-          // Score tricks on landing
-          const result = calculateTrickScore();
-          if (result.score > 0) {
-            game.score += result.score;
-            if (result.score > game.bestTrick) {
-              game.bestTrick = result.score;
-            }
-            showTrickPopup(result.trickNames, result.score);
-            createParticles(game.player.x, game.player.y, '#efc050');
+      // Calculate racket angle based on movement
+      const dx = game.player.x - (game.player.prevX || game.player.x);
+      game.player.racketAngle = dx * 0.05;
+      game.player.prevX = game.player.x;
+
+      // Update ball
+      if (game.ball.active) {
+        game.ball.x += game.ball.velocityX;
+        game.ball.y += game.ball.velocityY;
+
+        // Ball trail effect
+        game.ball.trail.push({ x: game.ball.x, y: game.ball.y });
+        if (game.ball.trail.length > 10) {
+          game.ball.trail.shift();
+        }
+
+        // Ball gravity and air resistance
+        game.ball.velocityY += 0.3;
+
+        // Wall collision
+        if (game.ball.x - game.ball.radius < 0 || game.ball.x + game.ball.radius > canvas.width) {
+          game.ball.velocityX *= -0.8;
+          game.ball.x = game.ball.x < canvas.width / 2 ? game.ball.radius : canvas.width - game.ball.radius;
+          createParticles(game.ball.x, game.ball.y, '#fff', 8);
+        }
+
+        // Player collision (racket)
+        const playerRacketY = game.player.y - 20;
+        const playerRacketX = game.player.x + game.player.width / 2;
+
+        if (game.ball.y + game.ball.radius > playerRacketY &&
+            game.ball.y - game.ball.radius < playerRacketY + 20 &&
+            game.ball.x > game.player.x - 20 &&
+            game.ball.x < game.player.x + game.player.width + 20 &&
+            game.lastHit !== 'player') {
+
+          // Hit the ball back
+          const hitAngle = (game.ball.x - playerRacketX) / 80;
+          const power = game.powerShot ? 1.5 : 1;
+          game.ball.velocityX = hitAngle * 8 * power;
+          game.ball.velocityY = -12 * game.speed * power;
+          game.ball.y = playerRacketY - game.ball.radius;
+          game.lastHit = 'player';
+          game.rally++;
+
+          // Score and effects
+          const points = Math.floor(10 * game.speed * power);
+          game.score += points;
+
+          if (game.powerShot) {
+            createParticles(game.ball.x, game.ball.y, '#efc050', 20);
+            showPowerPopup('POWER SHOT! +' + points);
           } else {
-            game.combo = 0; // Reset combo if no trick
+            createParticles(game.ball.x, game.ball.y, '#45b8ac', 15);
           }
 
-          // Reset rotation and flip
-          game.player.rotation = 0;
-          game.player.flip = 0;
-          game.player.tricks = [];
+          // Increase speed every 5 hits
+          if (game.rally % 5 === 0) {
+            game.speed += 0.1;
+            showPowerPopup('SPEED UP!');
+          }
+
+          if (game.rally > game.bestRally) {
+            game.bestRally = game.rally;
+          }
         }
-      }
 
-      // Spawn obstacles and ramps
-      if (Math.random() < 0.01 && Date.now() - game.lastObstacle > 2000) {
-        if (Math.random() > 0.3) {
-          createObstacle();
-        } else {
-          createRamp();
+        // Opponent AI
+        game.opponent.targetX = game.ball.x - game.opponent.width / 2;
+        game.opponent.x += (game.opponent.targetX - game.opponent.x) * 0.15;
+        game.opponent.x = Math.max(0, Math.min(canvas.width - game.opponent.width, game.opponent.x));
+
+        // Opponent collision
+        const opponentRacketY = game.opponent.y + game.opponent.height + 20;
+        const opponentRacketX = game.opponent.x + game.opponent.width / 2;
+
+        if (game.ball.y - game.ball.radius < opponentRacketY &&
+            game.ball.y + game.ball.radius > opponentRacketY - 20 &&
+            game.ball.x > game.opponent.x - 20 &&
+            game.ball.x < game.opponent.x + game.opponent.width + 20 &&
+            game.lastHit !== 'opponent') {
+
+          const hitAngle = (game.ball.x - opponentRacketX) / 80;
+          game.ball.velocityX = hitAngle * 6;
+          game.ball.velocityY = 10 * game.speed;
+          game.ball.y = opponentRacketY + game.ball.radius;
+          game.lastHit = 'opponent';
+          createParticles(game.ball.x, game.ball.y, '#ff6b6b', 12);
         }
-        game.lastObstacle = Date.now();
-      }
 
-      // Update obstacles
-      game.obstacles.forEach((obs, i) => {
-        obs.x -= game.gameSpeed;
-
-        // Collision detection
-        if (!game.player.jumping &&
-            game.player.x + game.player.width > obs.x &&
-            game.player.x < obs.x + obs.width &&
-            game.player.y + game.player.height > obs.y - obs.height) {
+        // Ball out of bounds (bottom)
+        if (game.ball.y > canvas.height + 50) {
           gameOver();
         }
 
-        // Remove off-screen obstacles
-        if (obs.x + obs.width < 0) {
-          game.obstacles.splice(i, 1);
-          game.score += 10;
+        // Ball out of bounds (top)
+        if (game.ball.y < -50) {
+          game.rally = 0;
+          serveBall();
         }
-      });
-
-      // Update ramps
-      game.ramps.forEach((ramp, i) => {
-        ramp.x -= game.gameSpeed;
-
-        // Auto-jump on ramp
-        if (!game.player.jumping &&
-            game.player.x + game.player.width > ramp.x &&
-            game.player.x < ramp.x + ramp.width) {
-          jump();
-          game.player.velocityY = -18; // Extra boost
-        }
-
-        // Remove off-screen ramps
-        if (ramp.x + ramp.width < 0) {
-          game.ramps.splice(i, 1);
-          game.score += 50;
-        }
-      });
+      }
 
       // Update particles
       game.particles.forEach((p, i) => {
         p.x += p.vx;
         p.y += p.vy;
+        p.vy += 0.2;
         p.life--;
         if (p.life <= 0) {
           game.particles.splice(i, 1);
         }
       });
 
-      // Increase speed over time
-      game.gameSpeed += 0.001;
-
       updateUI();
     }
 
     // Draw game
     function draw() {
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Clear canvas with gradient
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      skyGrad.addColorStop(0, '#87ceeb');
+      skyGrad.addColorStop(1, '#4a9eff');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw sky gradient (already in canvas background)
+      // Draw court
+      ctx.fillStyle = '#2d8b57';
+      ctx.fillRect(0, canvas.height - 150, canvas.width, 150);
 
-      // Draw ground
-      ctx.fillStyle = '#654321';
-      ctx.fillRect(0, game.ground + 50, canvas.width, canvas.height - game.ground - 50);
+      // Court lines
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height - 150);
+      ctx.lineTo(canvas.width, canvas.height - 150);
+      ctx.stroke();
 
-      // Draw ground line
+      // Net
       ctx.strokeStyle = '#333';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(0, game.ground + 50);
-      ctx.lineTo(canvas.width, game.ground + 50);
+      ctx.moveTo(0, canvas.height / 2);
+      ctx.lineTo(canvas.width, canvas.height / 2);
       ctx.stroke();
 
-      // Draw ramps
-      game.ramps.forEach(ramp => {
-        ctx.fillStyle = '#8b7355';
+      // Net posts
+      ctx.fillStyle = '#666';
+      ctx.fillRect(-5, canvas.height / 2 - 50, 10, 50);
+      ctx.fillRect(canvas.width - 5, canvas.height / 2 - 50, 10, 50);
+
+      // Draw opponent (top)
+      ctx.save();
+      ctx.translate(game.opponent.x + game.opponent.width / 2, game.opponent.y + game.opponent.height / 2);
+
+      // Opponent body
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillRect(-25, -35, 50, 60);
+
+      // Head
+      ctx.fillStyle = '#ffdbac';
+      ctx.beginPath();
+      ctx.arc(0, -50, 18, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Racket
+      ctx.strokeStyle = '#8b4513';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(30, -20);
+      ctx.lineTo(50, -10);
+      ctx.stroke();
+
+      // Racket head
+      ctx.strokeStyle = '#efc050';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(50, -10, 15, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Strings
+      ctx.strokeStyle = '#efc050';
+      ctx.lineWidth = 1;
+      for (let i = -10; i <= 10; i += 5) {
         ctx.beginPath();
-        ctx.moveTo(ramp.x, game.ground + 50);
-        ctx.lineTo(ramp.x + ramp.width, game.ground + 50);
-        ctx.lineTo(ramp.x + ramp.width, game.ground + 50 - ramp.height);
-        ctx.closePath();
+        ctx.moveTo(50 + i, -25);
+        ctx.lineTo(50 + i, 5);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      // Draw player (bottom) - MUCH LARGER AND MORE VISIBLE
+      ctx.save();
+      ctx.translate(game.player.x + game.player.width / 2, game.player.y + game.player.height / 2);
+
+      // Player body (bright color)
+      ctx.fillStyle = '#45b8ac';
+      ctx.fillRect(-30, -40, 60, 70);
+
+      // Head (larger)
+      ctx.fillStyle = '#ffdbac';
+      ctx.beginPath();
+      ctx.arc(0, -60, 22, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Eyes
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(-8, -60, 3, 0, Math.PI * 2);
+      ctx.arc(8, -60, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Smile
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, -55, 8, 0, Math.PI);
+      ctx.stroke();
+
+      // Arms
+      ctx.strokeStyle = '#ffdbac';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(-20, -20);
+      ctx.lineTo(-35, 0);
+      ctx.moveTo(20, -20);
+      ctx.lineTo(35, 0);
+      ctx.stroke();
+
+      // Legs
+      ctx.beginPath();
+      ctx.moveTo(-10, 30);
+      ctx.lineTo(-15, 50);
+      ctx.moveTo(10, 30);
+      ctx.lineTo(15, 50);
+      ctx.stroke();
+
+      // Racket (with angle)
+      ctx.save();
+      ctx.rotate(game.player.racketAngle);
+
+      ctx.strokeStyle = '#8b4513';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(35, -10);
+      ctx.lineTo(60, -20);
+      ctx.stroke();
+
+      // Racket head (large and visible)
+      ctx.strokeStyle = '#efc050';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(60, -20, 20, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Strings
+      ctx.strokeStyle = '#efc050';
+      ctx.lineWidth = 2;
+      for (let i = -15; i <= 15; i += 5) {
+        ctx.beginPath();
+        ctx.moveTo(60 + i, -35);
+        ctx.lineTo(60 + i, -5);
+        ctx.stroke();
+      }
+      for (let i = -15; i <= 15; i += 5) {
+        ctx.beginPath();
+        ctx.moveTo(45, -20 + i);
+        ctx.lineTo(75, -20 + i);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+      ctx.restore();
+
+      // Draw ball trail
+      if (game.ball.active) {
+        game.ball.trail.forEach((pos, i) => {
+          ctx.globalAlpha = i / game.ball.trail.length * 0.5;
+          ctx.fillStyle = '#ffeb3b';
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, game.ball.radius * 0.7, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+
+        // Draw ball (bright and visible)
+        ctx.fillStyle = '#ffeb3b';
+        ctx.beginPath();
+        ctx.arc(game.ball.x, game.ball.y, game.ball.radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Ramp outline
-        ctx.strokeStyle = '#654321';
-        ctx.lineWidth = 2;
+        // Ball highlight
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(game.ball.x - 4, game.ball.y - 4, game.ball.radius * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Ball outline
+        ctx.strokeStyle = '#ffa500';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(game.ball.x, game.ball.y, game.ball.radius, 0, Math.PI * 2);
         ctx.stroke();
-      });
-
-      // Draw obstacles
-      game.obstacles.forEach(obs => {
-        if (obs.type === 'box') {
-          ctx.fillStyle = '#8b4513';
-          ctx.fillRect(obs.x, obs.y + 50 - obs.height, obs.width, obs.height);
-          ctx.strokeStyle = '#654321';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(obs.x, obs.y + 50 - obs.height, obs.width, obs.height);
-        } else {
-          // Traffic cone
-          ctx.fillStyle = '#ff6600';
-          ctx.beginPath();
-          ctx.moveTo(obs.x + obs.width / 2, obs.y + 50 - obs.height);
-          ctx.lineTo(obs.x, obs.y + 50);
-          ctx.lineTo(obs.x + obs.width, obs.y + 50);
-          ctx.closePath();
-          ctx.fill();
-
-          // White stripe
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(obs.x + 5, obs.y + 25, obs.width - 10, 8);
-        }
-      });
+      }
 
       // Draw particles
       game.particles.forEach(p => {
         ctx.fillStyle = p.color;
         ctx.globalAlpha = p.life / 30;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
       });
       ctx.globalAlpha = 1;
 
-      // Draw player (skateboarder)
-      ctx.save();
-      ctx.translate(game.player.x + game.player.width / 2, game.player.y + game.player.height / 2);
-      ctx.rotate(game.player.rotation);
-
-      // Board
-      ctx.fillStyle = '#efc050';
-      ctx.fillRect(-20, 15, 40, 6);
-
-      // Wheels
-      ctx.fillStyle = '#333';
-      ctx.beginPath();
-      ctx.arc(-12, 18, 4, 0, Math.PI * 2);
-      ctx.arc(12, 18, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Body
-      ctx.strokeStyle = '#45b8ac';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(0, -10);
-      ctx.lineTo(0, 5);
-      ctx.stroke();
-
-      // Arms
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(-8, 8);
-      ctx.moveTo(0, 0);
-      ctx.lineTo(8, 8);
-      ctx.stroke();
-
-      // Legs
-      ctx.beginPath();
-      ctx.moveTo(0, 5);
-      ctx.lineTo(-6, 15);
-      ctx.moveTo(0, 5);
-      ctx.lineTo(6, 15);
-      ctx.stroke();
-
-      // Head
-      ctx.fillStyle = '#ffdbac';
-      ctx.beginPath();
-      ctx.arc(0, -15, 6, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.restore();
-
-      // Draw speed lines when jumping
-      if (game.player.jumping) {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 2;
-        for (let i = 0; i < 5; i++) {
-          ctx.beginPath();
-          ctx.moveTo(game.player.x - 20 - i * 15, game.player.y + i * 10);
-          ctx.lineTo(game.player.x - 40 - i * 15, game.player.y + i * 10);
-          ctx.stroke();
-        }
+      // Power shot indicator
+      if (game.powerShot) {
+        ctx.strokeStyle = '#efc050';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(game.player.x + game.player.width / 2, game.player.y, 80, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
+    }
+
+    // Serve ball
+    function serveBall() {
+      game.ball.x = game.opponent.x + game.opponent.width / 2;
+      game.ball.y = game.opponent.y + game.opponent.height + 40;
+      game.ball.velocityX = (Math.random() - 0.5) * 4;
+      game.ball.velocityY = 8;
+      game.ball.active = true;
+      game.ball.trail = [];
+      game.lastHit = 'opponent';
     }
 
     // Game loop
@@ -661,36 +698,33 @@
     // Update UI
     function updateUI() {
       document.getElementById('score').textContent = Math.floor(game.score);
-      document.getElementById('bestTrick').textContent = game.bestTrick;
-      document.getElementById('combo').textContent = game.combo + 'x';
+      document.getElementById('bestRally').textContent = game.bestRally;
+      document.getElementById('speed').textContent = game.speed.toFixed(1) + 'x';
     }
 
     // Start game
     function startGame() {
       game.running = true;
       game.score = 0;
-      game.bestTrick = 0;
-      game.combo = 0;
-      game.obstacles = [];
-      game.ramps = [];
+      game.rally = 0;
+      game.bestRally = 0;
+      game.speed = 1;
       game.particles = [];
-      game.gameSpeed = 3;
-      game.player.y = game.ground;
+      game.player.y = canvas.height - 100;
       game.player.jumping = false;
-      game.player.rotation = 0;
-      game.player.flip = 0;
-      game.lastObstacle = Date.now();
       document.getElementById('gameOver').style.display = 'none';
+      serveBall();
       updateUI();
     }
 
     // Game over
     function gameOver() {
       game.running = false;
+      game.ball.active = false;
       document.getElementById('finalScore').textContent = Math.floor(game.score);
-      document.getElementById('finalBestTrick').textContent = game.bestTrick;
+      document.getElementById('finalBestRally').textContent = game.bestRally;
       document.getElementById('gameOver').style.display = 'flex';
-      createParticles(game.player.x, game.player.y, '#ff0000');
+      createParticles(game.ball.x, canvas.height, '#ff0000', 30);
     }
 
     // Reset game
@@ -700,6 +734,12 @@
 
     // Start game loop
     gameLoop();
+
+    // Instruction on load
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 32px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText('Click to Start!', canvas.width / 2, canvas.height / 2);
   </script>
 </body>
 </html>
