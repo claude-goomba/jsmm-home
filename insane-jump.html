@@ -239,9 +239,9 @@
         x: canvas.width / 2,
         y: canvas.height / 2,
         radius: 10,
-        velocityX: 6,
-        velocityY: 4,
-        speed: 6,
+        velocityX: 3,
+        velocityY: 2,
+        speed: 3,
         trail: []
       },
       particles: [],
@@ -295,7 +295,7 @@
       game.ball.x = canvas.width / 2;
       game.ball.y = canvas.height / 2;
       game.ball.velocityX = (Math.random() > 0.5 ? 1 : -1) * game.ball.speed;
-      game.ball.velocityY = (Math.random() - 0.5) * 4;
+      game.ball.velocityY = (Math.random() - 0.5) * 2;
       game.ball.trail = [];
       game.rally = 0;
     }
@@ -357,12 +357,12 @@
 
         // Calculate hit position on paddle
         const hitPos = (game.ball.y - (game.player.y + game.player.height / 2)) / (game.player.height / 2);
-        game.ball.velocityY = hitPos * 6;
+        game.ball.velocityY = hitPos * 3;
         game.ball.velocityX = Math.abs(game.ball.velocityX);
         game.ball.x = game.player.x + game.player.width + game.ball.radius;
 
         // Increase speed slightly
-        game.ball.velocityX *= 1.05;
+        game.ball.velocityX *= 1.02;
         game.ball.speed = Math.sqrt(game.ball.velocityX ** 2 + game.ball.velocityY ** 2);
 
         game.rally++;
@@ -376,11 +376,11 @@
           game.ball.y < game.cpu.y + game.cpu.height) {
 
         const hitPos = (game.ball.y - (game.cpu.y + game.cpu.height / 2)) / (game.cpu.height / 2);
-        game.ball.velocityY = hitPos * 6;
+        game.ball.velocityY = hitPos * 3;
         game.ball.velocityX = -Math.abs(game.ball.velocityX);
         game.ball.x = game.cpu.x - game.ball.radius;
 
-        game.ball.velocityX *= 1.05;
+        game.ball.velocityX *= 1.02;
         game.ball.speed = Math.sqrt(game.ball.velocityX ** 2 + game.ball.velocityY ** 2);
 
         game.rally++;
@@ -542,7 +542,7 @@
       game.playerScore = 0;
       game.cpuScore = 0;
       game.rally = 0;
-      game.ball.speed = 6;
+      game.ball.speed = 3;
       startGame();
     }
 
