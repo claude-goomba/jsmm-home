@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSMM - Gaming Excellence</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: #fff;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Animated background particles */
+    .particles {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: 0;
+    }
+
+    .particle {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      background: #efc050;
+      border-radius: 50%;
+      opacity: 0.3;
+      animation: float 15s infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) translateX(0); }
+      25% { transform: translateY(-100px) translateX(50px); }
+      50% { transform: translateY(-200px) translateX(-50px); }
+      75% { transform: translateY(-100px) translateX(100px); }
+    }
+
+    /* Header */
+    header {
+      position: relative;
+      z-index: 10;
+      padding: 30px 50px;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .logo {
+      font-size: 3em;
+      font-weight: bold;
+      background: linear-gradient(135deg, #efc050 0%, #45b8ac 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 40px rgba(239, 192, 80, 0.5);
+      letter-spacing: 8px;
+    }
+
+    .tagline {
+      color: #b3b3b3;
+      font-size: 1.1em;
+      margin-top: 8px;
+      letter-spacing: 2px;
+    }
+
+    /* Hero section */
+    .hero {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      padding: 80px 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .hero h1 {
+      font-size: 2.5em;
+      color: #efc050;
+      margin-bottom: 20px;
+      text-shadow: 0 0 30px rgba(239, 192, 80, 0.6);
+    }
+
+    .hero p {
+      font-size: 1.3em;
+      color: #ccc;
+      max-width: 700px;
+      margin: 0 auto 40px;
+      line-height: 1.6;
+    }
+
+    /* Game showcase */
+    .games-section {
+      position: relative;
+      z-index: 10;
+      max-width: 1400px;
+      margin: 60px auto;
+      padding: 0 50px;
+    }
+
+    .section-title {
+      font-size: 2.2em;
+      color: #efc050;
+      text-align: center;
+      margin-bottom: 50px;
+      text-shadow: 0 0 20px rgba(239, 192, 80, 0.5);
+    }
+
+    .game-card {
+      background: rgba(35, 43, 58, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 24px;
+      padding: 50px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      margin-bottom: 40px;
+      border: 2px solid transparent;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .game-card::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(135deg, #efc050, #45b8ac);
+      border-radius: 24px;
+      z-index: -1;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .game-card:hover::before {
+      opacity: 1;
+    }
+
+    .game-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 16px 48px rgba(239, 192, 80, 0.3);
+    }
+
+    .game-header {
+      display: flex;
+      align-items: center;
+      gap: 30px;
+      margin-bottom: 30px;
+    }
+
+    .game-icon {
+      width: 120px;
+      height: 120px;
+      background: linear-gradient(135deg, #efc050, #ff9800);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 4em;
+      box-shadow: 0 8px 24px rgba(239, 192, 80, 0.4);
+    }
+
+    .game-info h2 {
+      font-size: 2.5em;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    .game-info .publisher {
+      color: #45b8ac;
+      font-size: 1.2em;
+      font-weight: 600;
+    }
+
+    .game-description {
+      font-size: 1.2em;
+      color: #b3b3b3;
+      line-height: 1.7;
+      margin-bottom: 30px;
+    }
+
+    .game-features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .feature {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      border-radius: 12px;
+      border-left: 4px solid #efc050;
+    }
+
+    .feature h3 {
+      color: #efc050;
+      margin-bottom: 8px;
+      font-size: 1.1em;
+    }
+
+    .feature p {
+      color: #999;
+      font-size: 0.95em;
+    }
+
+    .cta-button {
+      display: inline-block;
+      background: linear-gradient(135deg, #efc050, #ff9800);
+      color: #fff;
+      padding: 18px 48px;
+      border-radius: 12px;
+      font-size: 1.3em;
+      font-weight: bold;
+      text-decoration: none;
+      box-shadow: 0 8px 24px rgba(239, 192, 80, 0.4);
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+    }
+
+    .cta-button:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 32px rgba(239, 192, 80, 0.6);
+    }
+
+    /* Footer */
+    footer {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      padding: 50px 20px;
+      background: rgba(0, 0, 0, 0.4);
+      margin-top: 100px;
+    }
+
+    footer p {
+      color: #666;
+      font-size: 1em;
+    }
+
+    .social-links {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+    }
+
+    .social-links a {
+      color: #45b8ac;
+      font-size: 1.5em;
+      text-decoration: none;
+      transition: all 0.3s ease;
+    }
+
+    .social-links a:hover {
+      color: #efc050;
+      transform: scale(1.2);
+    }
+
+    /* About section */
+    .about-section {
+      position: relative;
+      z-index: 10;
+      max-width: 1000px;
+      margin: 80px auto;
+      padding: 60px 50px;
+      background: rgba(35, 43, 58, 0.6);
+      backdrop-filter: blur(10px);
+      border-radius: 24px;
+      text-align: center;
+    }
+
+    .about-section h2 {
+      font-size: 2.5em;
+      color: #efc050;
+      margin-bottom: 30px;
+    }
+
+    .about-section p {
+      font-size: 1.2em;
+      color: #b3b3b3;
+      line-height: 1.8;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Animated particles background -->
+  <div class="particles" id="particles"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="logo">JSMM</div>
+    <div class="tagline">Josh · Storm · Manu · Miles</div>
+    <div class="tagline" style="margin-top: 4px; font-size: 0.9em;">Premium Interactive Entertainment</div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <h1>Welcome to the Future of Gaming</h1>
+    <p>JSMM is proud to be the home of Super Curl Games, bringing you innovative and engaging gaming experiences that push the boundaries of interactive entertainment.</p>
+  </section>
+
+  <!-- About Section -->
+  <section class="about-section">
+    <h2>About JSMM</h2>
+    <p>Founded by Josh, Storm, Manu, and Miles, JSMM is a leading gaming company committed to delivering exceptional interactive experiences. Through our acquisition of Super Curl Games, we've expanded our portfolio to include cutting-edge tower defense and strategy titles.</p>
+    <p>Our mission is to create games that captivate, challenge, and inspire players around the world.</p>
+  </section>
+
+  <!-- Games Section -->
+  <section class="games-section">
+    <h2 class="section-title">Featured Games</h2>
+
+    <div class="game-card">
+      <div class="game-header">
+        <div class="game-icon">🏰</div>
+        <div class="game-info">
+          <h2>Heavy Defence</h2>
+          <p class="publisher">by Super Curl Games</p>
+        </div>
+      </div>
+
+      <p class="game-description">
+        Experience the ultimate tower defense challenge! Command an army of archers, mages, and heavy artillery as you defend your fortress against relentless waves of enemies. With stunning visuals, strategic depth, and intense gameplay, Heavy Defence sets a new standard for the genre.
+      </p>
+
+      <div class="game-features">
+        <div class="feature">
+          <h3>🎯 14 Unique Towers</h3>
+          <p>From nimble archers to devastating double cannons, master diverse defensive strategies</p>
+        </div>
+        <div class="feature">
+          <h3>⚔️ Epic Battles</h3>
+          <p>Face off against 5 enemy types including goblins, orcs, and armored warriors</p>
+        </div>
+        <div class="feature">
+          <h3>🎨 Beautiful Graphics</h3>
+          <p>Enjoy hand-crafted visuals with detailed animations and effects</p>
+        </div>
+        <div class="feature">
+          <h3>🔧 Upgrade System</h3>
+          <p>Enhance your towers and adapt your strategy as the challenge intensifies</p>
+        </div>
+      </div>
+
+      <a href="https://claude-goomba.github.io/heavy-defence/heavy-defence.html" class="cta-button">Play Heavy Defence →</a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>&copy; 2025 JSMM. All rights reserved. | Super Curl Games is a subsidiary of JSMM.</p>
+    <div class="social-links">
+      <a href="#" title="Twitter">🐦</a>
+      <a href="#" title="Discord">💬</a>
+      <a href="#" title="YouTube">📺</a>
+    </div>
+  </footer>
+
+  <script>
+    // Generate animated particles
+    const particlesContainer = document.getElementById('particles');
+    for (let i = 0; i < 50; i++) {
+      const particle = document.createElement('div');
+      particle.className = 'particle';
+      particle.style.left = Math.random() * 100 + '%';
+      particle.style.top = Math.random() * 100 + '%';
+      particle.style.animationDelay = Math.random() * 15 + 's';
+      particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+      particlesContainer.appendChild(particle);
+    }
+  </script>
+</body>
+</html>
