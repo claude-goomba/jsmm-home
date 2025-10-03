@@ -233,7 +233,7 @@
         y: canvas.height / 2 - 60,
         width: 15,
         height: 120,
-        speed: 5
+        speed: 3
       },
       ball: {
         x: canvas.width / 2,
@@ -323,9 +323,9 @@
       const cpuCenter = game.cpu.y + game.cpu.height / 2;
       const ballY = game.ball.y;
 
-      if (cpuCenter < ballY - 20) {
+      if (cpuCenter < ballY - 50) {
         game.cpu.y += game.cpu.speed;
-      } else if (cpuCenter > ballY + 20) {
+      } else if (cpuCenter > ballY + 50) {
         game.cpu.y -= game.cpu.speed;
       }
 
