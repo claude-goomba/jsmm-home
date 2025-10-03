@@ -245,7 +245,14 @@
         trail: []
       },
       particles: [],
-      keys: {}
+      keys: {},
+      replay: {
+        active: false,
+        frames: [],
+        currentFrame: 0,
+        maxFrames: 60, // Record last 60 frames (about 1 second at 60fps)
+        scoredBy: null
+      }
     };
 
     // Mouse controls
@@ -300,9 +307,49 @@
       game.rally = 0;
     }
 
+    // Record frame for replay
+    function recordFrame() {
+      game.replay.frames.push({
+        ballX: game.ball.x,
+        ballY: game.ball.y,
+        playerY: game.player.y,
+        cpuY: game.cpu.y
+      });
+
+      // Keep only last N frames
+      if (game.replay.frames.length > game.replay.maxFrames) {
+        game.replay.frames.shift();
+      }
+    }
+
+    // Play replay
+    function playReplay(scorer) {
+      game.replay.active = true;
+      game.replay.currentFrame = 0;
+      game.replay.scoredBy = scorer;
+    }
+
     // Update game
     function update() {
       if (!game.running) return;
+
+      // Handle replay mode
+      if (game.replay.active) {
+        if (game.replay.currentFrame < game.replay.frames.length) {
+          const frame = game.replay.frames[game.replay.currentFrame];
+          game.ball.x = frame.ballX;
+          game.ball.y = frame.ballY;
+          game.player.y = frame.playerY;
+          game.cpu.y = frame.cpuY;
+          game.replay.currentFrame++;
+        } else {
+          // Replay finished
+          game.replay.active = false;
+          game.replay.frames = [];
+          resetBall();
+        }
+        return;
+      }
 
       // Update player paddle (follow mouse)
       const targetY = game.mouseY - game.player.height / 2;
@@ -387,7 +434,7 @@
         if (game.cpuScore >= game.maxScore) {
           endGame('CPU');
         } else {
-          resetBall();
+          playReplay('CPU');
         }
       } else if (game.ball.x > canvas.width) {
         game.playerScore++;
@@ -395,7 +442,7 @@
         if (game.playerScore >= game.maxScore) {
           endGame('Player');
         } else {
-          resetBall();
+          playReplay('Player');
         }
       }
 
@@ -408,6 +455,9 @@
           game.particles.splice(i, 1);
         }
       });
+
+      // Record frame for replay
+      recordFrame();
 
       updateUI();
     }
@@ -496,6 +546,25 @@
         ctx.fill();
       });
       ctx.globalAlpha = 1;
+
+      // Draw replay indicator
+      if (game.replay.active) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#efc050';
+        ctx.font = 'bold 64px monospace';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#efc050';
+        ctx.shadowBlur = 20;
+        ctx.fillText('REPLAY', canvas.width / 2, canvas.height / 2);
+
+        ctx.font = 'bold 32px monospace';
+        ctx.fillStyle = game.replay.scoredBy === 'Player' ? '#45b8ac' : '#ff6b6b';
+        ctx.fillText(game.replay.scoredBy + ' Scored!', canvas.width / 2, canvas.height / 2 + 60);
+        ctx.restore();
+      }
     }
 
     // Game loop
