@@ -213,6 +213,19 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
+    // Intro animation state
+    let intro = {
+      active: true,
+      phase: 0, // 0: pong timelapse, 1: JSMM logo, 2: fade to game
+      frame: 0,
+      ball: { x: 400, y: 300, vx: 8, vy: 5 },
+      paddle1: { y: 240 },
+      paddle2: { y: 240 },
+      scores: [0, 0],
+      logoAlpha: 0,
+      fadeAlpha: 0
+    };
+
     // Game state
     let game = {
       running: false,
@@ -327,6 +340,143 @@
       game.replay.active = true;
       game.replay.currentFrame = 0;
       game.replay.scoredBy = scorer;
+    }
+
+    // Update intro animation
+    function updateIntro() {
+      if (!intro.active) return;
+
+      intro.frame++;
+
+      if (intro.phase === 0) {
+        // Time-lapse pong match
+        intro.ball.x += intro.ball.vx;
+        intro.ball.y += intro.ball.vy;
+
+        // Bounce off top/bottom
+        if (intro.ball.y <= 10 || intro.ball.y >= 590) {
+          intro.ball.vy *= -1;
+          intro.ball.y = intro.ball.y <= 10 ? 10 : 590;
+        }
+
+        // Paddle AI (fast)
+        intro.paddle1.y += (intro.ball.y - intro.paddle1.y - 60) * 0.3;
+        intro.paddle2.y += (intro.ball.y - intro.paddle2.y - 60) * 0.3;
+
+        // Paddle collisions
+        if (intro.ball.x <= 40 && intro.ball.y > intro.paddle1.y && intro.ball.y < intro.paddle1.y + 120) {
+          intro.ball.vx = Math.abs(intro.ball.vx);
+        }
+        if (intro.ball.x >= 760 && intro.ball.y > intro.paddle2.y && intro.ball.y < intro.paddle2.y + 120) {
+          intro.ball.vx = -Math.abs(intro.ball.vx);
+        }
+
+        // Scoring
+        if (intro.ball.x < 0) {
+          intro.scores[1]++;
+          intro.ball.x = 400;
+          intro.ball.y = 300;
+          intro.ball.vx = 8;
+        } else if (intro.ball.x > 800) {
+          intro.scores[0]++;
+          intro.ball.x = 400;
+          intro.ball.y = 300;
+          intro.ball.vx = -8;
+        }
+
+        // Transition to logo after 180 frames (3 seconds at 60fps)
+        if (intro.frame > 180) {
+          intro.phase = 1;
+          intro.frame = 0;
+        }
+      } else if (intro.phase === 1) {
+        // JSMM logo fade in
+        intro.logoAlpha = Math.min(1, intro.logoAlpha + 0.02);
+
+        // Hold logo for 120 frames (2 seconds)
+        if (intro.frame > 120 && intro.logoAlpha >= 1) {
+          intro.phase = 2;
+          intro.frame = 0;
+        }
+      } else if (intro.phase === 2) {
+        // Fade out to game
+        intro.fadeAlpha = Math.min(1, intro.fadeAlpha + 0.03);
+
+        if (intro.fadeAlpha >= 1) {
+          intro.active = false;
+        }
+      }
+    }
+
+    // Draw intro animation
+    function drawIntro() {
+      if (!intro.active) return;
+
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (intro.phase === 0) {
+        // Draw time-lapse pong match
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(400, 0);
+        ctx.lineTo(400, 600);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw paddles
+        ctx.fillStyle = '#45b8ac';
+        ctx.fillRect(30, intro.paddle1.y, 10, 120);
+        ctx.fillStyle = '#ff6b6b';
+        ctx.fillRect(760, intro.paddle2.y, 10, 120);
+
+        // Draw ball
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(intro.ball.x, intro.ball.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw scores
+        ctx.fillStyle = '#45b8ac';
+        ctx.font = 'bold 48px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(intro.scores[0].toString(), 200, 80);
+        ctx.fillStyle = '#ff6b6b';
+        ctx.fillText(intro.scores[1].toString(), 600, 80);
+      } else if (intro.phase === 1) {
+        // Draw JSMM logo
+        ctx.save();
+        ctx.globalAlpha = intro.logoAlpha;
+
+        // Background gradient
+        const grad = ctx.createRadialGradient(400, 300, 0, 400, 300, 400);
+        grad.addColorStop(0, '#1a1a2e');
+        grad.addColorStop(1, '#000');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // JSMM text with glow
+        ctx.shadowColor = '#efc050';
+        ctx.shadowBlur = 40;
+        ctx.fillStyle = '#efc050';
+        ctx.font = 'bold 120px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('JSMM', 400, 320);
+
+        // Subtitle
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = '#45b8ac';
+        ctx.font = 'bold 28px monospace';
+        ctx.fillText('Josh · Storm · Manu · Miles', 400, 380);
+
+        ctx.restore();
+      } else if (intro.phase === 2) {
+        // Fade to white
+        ctx.fillStyle = `rgba(255, 255, 255, ${intro.fadeAlpha})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
     }
 
     // Update game
@@ -565,12 +715,28 @@
         ctx.fillText(game.replay.scoredBy + ' Scored!', canvas.width / 2, canvas.height / 2 + 60);
         ctx.restore();
       }
+
+      // Draw start screen after intro
+      if (!game.running && !intro.active && !game.replay.active) {
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 32px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('CLICK TO START', canvas.width / 2, canvas.height / 2);
+        ctx.font = 'bold 20px monospace';
+        ctx.fillStyle = '#efc050';
+        ctx.fillText('First to 10 wins!', canvas.width / 2, canvas.height / 2 + 40);
+      }
     }
 
     // Game loop
     function gameLoop() {
-      update();
-      draw();
+      if (intro.active) {
+        updateIntro();
+        drawIntro();
+      } else {
+        update();
+        draw();
+      }
       requestAnimationFrame(gameLoop);
     }
 
@@ -610,15 +776,6 @@
 
     // Start game loop
     gameLoop();
-
-    // Draw initial screen
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 32px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('CLICK TO START', canvas.width / 2, canvas.height / 2);
-    ctx.font = 'bold 20px monospace';
-    ctx.fillStyle = '#efc050';
-    ctx.fillText('First to 10 wins!', canvas.width / 2, canvas.height / 2 + 40);
   </script>
 </body>
 </html>
