@@ -361,10 +361,6 @@
         game.ball.velocityX = Math.abs(game.ball.velocityX);
         game.ball.x = game.player.x + game.player.width + game.ball.radius;
 
-        // Increase speed slightly
-        game.ball.velocityX *= 1.02;
-        game.ball.speed = Math.sqrt(game.ball.velocityX ** 2 + game.ball.velocityY ** 2);
-
         game.rally++;
         createParticles(game.ball.x, game.ball.y, '#efc050', 15);
       }
@@ -379,9 +375,6 @@
         game.ball.velocityY = hitPos * 4;
         game.ball.velocityX = -Math.abs(game.ball.velocityX);
         game.ball.x = game.cpu.x - game.ball.radius;
-
-        game.ball.velocityX *= 1.02;
-        game.ball.speed = Math.sqrt(game.ball.velocityX ** 2 + game.ball.velocityY ** 2);
 
         game.rally++;
         createParticles(game.ball.x, game.ball.y, '#ff6b6b', 15);
